@@ -33,8 +33,16 @@
           resp (ok resp)
           :else (not-found))))
 
+(def echo
+  {:name ::echo,
+   :enter (fn [context]
+            (let [request (:request context)
+                  response (ok request)]
+              (assoc context :response response)))})
+
 (def routes
-  (route/expand-routes #{["/greet" :get respond-hello :route-name :greet]}))
+  (route/expand-routes #{["/greet" :get respond-hello :route-name :greet]
+                         ["/echo" :get echo]}))
 
 (comment
   (route/try-routing-for routes :prefix-tree "/greet" :get)
