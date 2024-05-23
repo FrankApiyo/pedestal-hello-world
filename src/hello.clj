@@ -12,21 +12,26 @@
 
 (defn ok [resp-body] {:status 200, :body resp-body})
 
-(defn resp-400 [] {:status 400, :body "Name can not be empty"})
+(defn resp-400 [] {:status 400, :body "Name can not be empty\n"})
+
+(defn not-found [] {:status 404, :body "Not found\n"})
+
+(def unmentionables #{"YHWH" "Voldemort" "Mxyzptlk" "Rumplestiltskin" "曹操"})
 
 (defn greeting-for
   [nm]
-  (if (empty? nm) ;; Both nil and 0-length string counts as empty
-    "Hello, World!\n"
-    (str "Hello, " nm "\n")))
+  (cond (unmentionables nm) nil
+        (empty? nm) ;; Both nil and 0-length string counts as empty
+          "Hello, World!\n"
+        :else (str "Hello, " nm "\n")))
 
 (defn respond-hello
   [request]
   (let [nm (get-in request [:query-params :name])
         resp (greeting-for nm)]
-    (if (and (contains? (:query-params request) :name) (empty? nm))
-      (resp-400)
-      (ok resp))))
+    (cond (and (contains? (:query-params request) :name) (empty? nm)) (resp-400)
+          resp (ok resp)
+          :else (not-found))))
 
 (def routes
   (route/expand-routes #{["/greet" :get respond-hello :route-name :greet]}))
