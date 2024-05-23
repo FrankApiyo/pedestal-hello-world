@@ -6,7 +6,13 @@
 (comment
   (= (respond-hello {}) {:status 200, :body "Hello, world!"}))
 
+(comment
+  (clojure.repl/doc contains?)
+  (contains? {:one 1} :one))
+
 (defn ok [resp-body] {:status 200, :body resp-body})
+
+(defn resp-400 [] {:status 400, :body "Name can not be empty"})
 
 (defn greeting-for
   [nm]
@@ -18,7 +24,9 @@
   [request]
   (let [nm (get-in request [:query-params :name])
         resp (greeting-for nm)]
-    (ok resp)))
+    (if (and (contains? (:query-params request) :name) (empty? nm))
+      (resp-400)
+      (ok resp))))
 
 (def routes
   (route/expand-routes #{["/greet" :get respond-hello :route-name :greet]}))
