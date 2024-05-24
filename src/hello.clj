@@ -1,6 +1,8 @@
 (ns hello
-  (:require [io.pedestal.http :as http]
+  (:require [clojure.data.json :as json]
+            [io.pedestal.http :as http]
             [clojure.repl :refer [doc]]
+            [io.pedestal.http.content-negotiation :as content-negotiation]
             [io.pedestal.http.route :as route]))
 
 (comment
@@ -9,6 +11,41 @@
 (comment
   (clojure.repl/doc contains?)
   (contains? {:one 1} :one))
+
+(def supported-types
+  ["text/html" "application/edn" "application/json" "text/plain"])
+
+
+(def content-negotiation-interceptor
+  (content-negotiation/negotiate-content supported-types))
+
+(defn accepted-types
+  [context]
+  (get-in context [:request :accept :field] "text/plain"))
+
+(defn transform-content
+  [body content-type]
+  (case content-type
+    "text/html" body
+    "text/plain" body
+    "application/edn" (pr-str body)
+    "application/json" (json/write-str body)))
+
+(defn coerce-to
+  [response content-type]
+  (-> response
+      (update :body transform-content content-type)
+      (assoc-in [:headers "Content-Type"] content-type)))
+
+(def coerce-body-interceptor
+  {:name ::coerce-body,
+   :leave (fn [context]
+            (cond-> context
+              (nil? (get-in context [:response :headers "Content-Type"]))
+                (update-in context
+                           [:response]
+                           coerce-to
+                           (accepted-types context))))})
 
 (defn ok [resp-body] {:status 200, :body resp-body})
 
@@ -41,8 +78,10 @@
               (assoc context :response response)))})
 
 (def routes
-  (route/expand-routes #{["/greet" :get respond-hello :route-name :greet]
-                         ["/echo" :get echo]}))
+  (route/expand-routes
+    #{["/greet" :get
+       [coerce-body-interceptor content-negotiation-interceptor respond-hello]
+       :route-name :greet] ["/echo" :get echo]}))
 
 (comment
   (route/try-routing-for routes :prefix-tree "/greet" :get)
