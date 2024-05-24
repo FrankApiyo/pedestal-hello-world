@@ -1,5 +1,6 @@
 (ns hello
   (:require [clojure.data.json :as json]
+            [io.pedestal.log :as l]
             [io.pedestal.http :as http]
             [clojure.repl :refer [doc]]
             [io.pedestal.http.content-negotiation :as content-negotiation]
@@ -21,6 +22,7 @@
 
 (defn accepted-types
   [context]
+  (l/info :accept-field (get-in context [:request :accept :field]))
   (get-in context [:request :accept :field] "text/plain"))
 
 (defn transform-content
@@ -37,15 +39,19 @@
       (update :body transform-content content-type)
       (assoc-in [:headers "Content-Type"] content-type)))
 
+(comment
+  (clojure.repl/doc l/debug)
+  (l/info :test "one"))
+
 (def coerce-body-interceptor
   {:name ::coerce-body,
    :leave (fn [context]
+            (l/info :message ">>>>content-type: "
+                    :content-type (get-in context
+                                          [:response :headers "Content-Type"]))
             (cond-> context
               (nil? (get-in context [:response :headers "Content-Type"]))
-                (update-in context
-                           [:response]
-                           coerce-to
-                           (accepted-types context))))})
+                (update-in [:response] coerce-to (accepted-types context))))})
 
 (defn ok [resp-body] {:status 200, :body resp-body})
 
